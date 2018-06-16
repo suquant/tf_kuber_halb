@@ -42,8 +42,8 @@ resource "null_resource" "lb" {
   provisioner "remote-exec" {
     when = "destroy"
     inline = [
-      "sed -i 's#server:.*#server: https://${var.api_endpoints[0]}#g' /etc/kubernetes/kubelet.conf",
-      "systemctl restart kubelet.service",
+      "sed -i 's#server:.*#server: https://${var.api_endpoints[0]}#g' /etc/kubernetes/kubelet.conf || true",
+      "systemctl restart kubelet.service || true",
       "docker ps -a | grep kuber_halb | awk '{print \"docker stop \"$1\" && docker rm \"$1}' | sh || true"
     ]
   }
@@ -62,18 +62,16 @@ resource "null_resource" "update_kube_proxy" {
   provisioner "remote-exec" {
     when = "destroy"
     inline = [
-      "until timeout 5 kubectl get po; do sleep 3; done",
-      "kubectl get configmap -n kube-system kube-proxy -o yaml > kube-proxy-cm.yaml",
-      "sed -i 's#server:.*#server: https://${var.api_endpoints[0]}#g' kube-proxy-cm.yaml",
-      "kubectl apply -f kube-proxy-cm.yaml --force",
-      "kubectl delete pod -n kube-system -l k8s-app=kube-proxy"
+      "kubectl get configmap -n kube-system kube-proxy -o yaml > kube-proxy-cm.yaml || true",
+      "sed -i 's#server:.*#server: https://${var.api_endpoints[0]}#g' kube-proxy-cm.yaml || true",
+      "kubectl apply -f kube-proxy-cm.yaml --force || true",
+      "kubectl delete pod -n kube-system -l k8s-app=kube-proxy || true"
     ]
   }
 
   # rewrite kube-proxy
   provisioner "remote-exec" {
     inline = [
-      "until timeout 5 kubectl get po; do sleep 3; done",
       "kubectl get configmap -n kube-system kube-proxy -o yaml > kube-proxy-cm.yaml",
       "sed -i 's#server:.*#server: https://127.0.0.1:${var.port}#g' kube-proxy-cm.yaml",
       "kubectl apply -f kube-proxy-cm.yaml --force",
